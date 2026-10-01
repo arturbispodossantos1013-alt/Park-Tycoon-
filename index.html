@@ -1,0 +1,3676 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Galaxy Park Tycoon</title>
+
+<style>
+
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+font-family:Arial,sans-serif;
+}
+
+body{
+overflow:hidden;
+background:#20252d;
+}
+
+#hud{
+position:fixed;
+left:10px;
+top:10px;
+background:#111;
+color:#fff;
+padding:12px;
+border-radius:10px;
+z-index:999;
+min-width:220px;
+}
+
+#hud h2{
+margin-bottom:8px;
+color:#00e5ff;
+}
+
+#hud p{
+margin:4px 0;
+}
+
+#menu{
+position:fixed;
+right:10px;
+top:10px;
+background:#111;
+padding:10px;
+border-radius:10px;
+z-index:999;
+}
+
+#menu button{
+display:block;
+width:180px;
+margin:6px 0;
+padding:10px;
+border:none;
+border-radius:8px;
+background:#00bcd4;
+color:white;
+cursor:pointer;
+font-size:15px;
+}
+
+#menu button:hover{
+background:#0097a7;
+}
+
+#camera{
+position:absolute;
+width:100vw;
+height:100vh;
+overflow:hidden;
+cursor:grab;
+}
+
+#world{
+position:absolute;
+width:4000px;
+height:4000px;
+background:#5cb85c;
+transform-origin:0 0;
+}
+
+.path{
+position:absolute;
+background:#cfcfcf;
+}
+
+.ride{
+position:absolute;
+width:140px;
+height:140px;
+border-radius:12px;
+display:flex;
+align-items:center;
+justify-content:center;
+font-size:60px;
+cursor:pointer;
+box-shadow:0 0 10px rgba(0,0,0,.4);
+}
+
+.visitor{
+position:absolute;
+width:20px;
+height:20px;
+border-radius:50%;
+background:orange;
+}
+
+.robot{
+position:absolute;
+width:26px;
+height:26px;
+border-radius:50%;
+background:cyan;
+box-shadow:0 0 10px cyan;
+}
+
+</style>
+</head>
+<body>
+
+<div id="hud">
+
+<h2>🎢 Galaxy Park</h2>
+
+<p>💰 $<span id="money">1000</span></p>
+
+<p>👥 <span id="visitors">0</span></p>
+
+<p>🤖 <span id="robots">1</span></p>
+
+</div>
+
+<div id="menu">
+
+<button onclick="buildRide()">🎢 Construir</button>
+
+<button onclick="hireRobot()">🤖 Comprar Robô</button>
+
+<button onclick="collectMoney()">💰 Coletar</button>
+
+</div>
+
+<div id="camera">
+
+<div id="world">
+
+<div class="path"
+style="left:0;top:1950px;width:4000px;height:100px;"></div>
+
+<div class="path"
+style="left:1950px;top:0;width:100px;height:4000px;"></div>
+
+<div class="ride"
+style="left:800px;top:800px;background:#ff5252;">
+🎢
+</div>
+
+<div class="ride"
+style="left:2800px;top:900px;background:#ffd54f;">
+🎡
+</div>
+
+</div>
+
+</div>
+
+<script>
+
+const state={
+
+money:1000,
+visitors:0,
+robots:1,
+
+cameraX:0,
+cameraY:0,
+
+zoom:1
+
+};
+
+const world=document.getElementById("world");
+const camera=document.getElementById("camera");
+
+function updateHUD(){
+
+document.getElementById("money").textContent=
+state.money.toLocaleString("pt-BR");
+
+document.getElementById("visitors").textContent=
+state.visitors;
+
+document.getElementById("robots").textContent=
+state.robots;
+
+}
+
+updateHUD();
+
+/* câmera */
+
+let drag=false;
+
+let sx=0;
+let sy=0;
+
+camera.onmousedown=e=>{
+
+drag=true;
+
+sx=e.clientX;
+sy=e.clientY;
+
+camera.style.cursor="grabbing";
+
+};
+
+window.onmouseup=()=>{
+
+drag=false;
+
+camera.style.cursor="grab";
+
+};
+
+window.onmousemove=e=>{
+
+if(!drag)return;
+
+state.cameraX+=e.clientX-sx;
+state.cameraY+=e.clientY-sy;
+
+sx=e.clientX;
+sy=e.clientY;
+
+world.style.transform=
+`translate(${state.cameraX}px,${state.cameraY}px) scale(${state.zoom})`;
+
+};
+
+camera.onwheel=e=>{
+
+e.preventDefault();
+
+state.zoom+=e.deltaY<0?0.1:-0.1;
+
+if(state.zoom<0.5)state.zoom=0.5;
+if(state.zoom>2)state.zoom=2;
+
+world.style.transform=
+`translate(${state.cameraX}px,${state.cameraY}px) scale(${state.zoom})`;
+
+};/* ===========================
+   VISITANTES
+=========================== */
+
+const visitors=[];
+
+function spawnVisitor(){
+
+const v=document.createElement("div");
+
+v.className="visitor";
+
+v.x=1950+Math.random()*100;
+v.y=1950+Math.random()*100;
+
+v.style.left=v.x+"px";
+v.style.top=v.y+"px";
+
+world.appendChild(v);
+
+visitors.push(v);
+
+state.visitors++;
+
+updateHUD();
+
+let angle=Math.random()*Math.PI*2;
+
+setInterval(()=>{
+
+angle+=(Math.random()-0.5)*0.3;
+
+v.x+=Math.cos(angle)*2;
+v.y+=Math.sin(angle)*2;
+
+if(v.x<20)v.x=20;
+if(v.y<20)v.y=20;
+if(v.x>3980)v.x=3980;
+if(v.y>3980)v.y=3980;
+
+v.style.left=v.x+"px";
+v.style.top=v.y+"px";
+
+},40);
+
+}
+
+setInterval(()=>{
+
+if(state.visitors<150){
+
+spawnVisitor();
+
+}
+
+},1200);
+
+/* ===========================
+   ROBÔS
+=========================== */
+
+const robots=[];
+
+function hireRobot(){
+
+const cost=500;
+
+if(state.money<cost){
+
+alert("Dinheiro insuficiente!");
+
+return;
+
+}
+
+state.money-=cost;
+
+state.robots++;
+
+updateHUD();
+
+const r=document.createElement("div");
+
+r.className="robot";
+
+r.x=2000;
+r.y=2000;
+
+r.style.left=r.x+"px";
+r.style.top=r.y+"px";
+
+world.appendChild(r);
+
+robots.push(r);
+
+let dir=Math.random()*Math.PI*2;
+
+setInterval(()=>{
+
+dir+=(Math.random()-0.5)*0.4;
+
+r.x+=Math.cos(dir)*3;
+r.y+=Math.sin(dir)*3;
+
+if(r.x<20)r.x=20;
+if(r.y<20)r.y=20;
+if(r.x>3980)r.x=3980;
+if(r.y>3980)r.y=3980;
+
+r.style.left=r.x+"px";
+r.style.top=r.y+"px";
+
+},35);
+
+}
+
+/* ===========================
+   ECONOMIA
+=========================== */
+
+function collectMoney(){
+
+let gain=Math.floor(
+
+state.visitors*6+
+
+state.robots*20
+
+);
+
+state.money+=gain;
+
+updateHUD();
+
+}
+
+setInterval(()=>{
+
+state.money+=Math.floor(
+
+state.visitors*2+
+
+state.robots*4
+
+);
+
+updateHUD();
+
+},1000);
+
+/* ===========================
+   CONSTRUIR ATRAÇÕES
+=========================== */
+
+function buildRide(){
+
+const cost=1000;
+
+if(state.money<cost){
+
+alert("Você não tem dinheiro!");
+
+return;
+
+}
+
+state.money-=cost;
+
+updateHUD();
+
+const emojis=[
+"🎠",
+"🎢",
+"🎡",
+"🚀",
+"🛸",
+"🎪"
+];
+
+const ride=document.createElement("div");
+
+ride.className="ride";
+
+ride.innerHTML=
+emojis[Math.floor(Math.random()*emojis.length)];
+
+ride.style.left=
+(150+Math.random()*3600)+"px";
+
+ride.style.top=
+(150+Math.random()*3600)+"px";
+
+ride.style.background=
+"#"+Math.floor(Math.random()*16777215).toString(16).padStart(6,"0");
+
+ride.level=1;
+
+ride.onclick=function(){
+
+const lucro=ride.level*300;
+
+state.money+=lucro;
+
+updateHUD();
+
+};
+
+ride.ondblclick=function(){
+
+const upgrade=ride.level*1500;
+
+if(state.money<upgrade){
+
+alert("Dinheiro insuficiente!");
+
+return;
+
+}
+
+state.money-=upgrade;
+
+ride.level++;
+
+ride.style.transform=
+"scale("+(1+ride.level*0.08)+")";
+
+updateHUD();
+
+};
+
+world.appendChild(ride);
+
+}
+
+/* ===========================
+   TÍTULO
+=========================== */
+
+setInterval(()=>{
+
+document.title=
+"Galaxy Park Tycoon | 💰 "+
+state.money.toLocaleString("pt-BR");
+
+},500);/* ===========================
+   EVENTOS
+=========================== */
+
+const events={
+money2x:false,
+people5x:false,
+treasure:false
+};
+
+function startEvent(type){
+
+events[type]=true;
+
+let time=300;
+
+const timer=setInterval(()=>{
+
+time--;
+
+if(time<=0){
+
+clearInterval(timer);
+
+events[type]=false;
+
+notify("Evento encerrado!");
+
+}
+
+},1000);
+
+switch(type){
+
+case "money2x":
+
+notify("💰 Evento 2X Money iniciado!");
+
+break;
+
+case "people5x":
+
+notify("👥 Evento 5X Pessoas iniciado!");
+
+for(let i=0;i<80;i++){
+
+spawnVisitor();
+
+}
+
+break;
+
+case "treasure":
+
+notify("💎 Evento do Tesouro iniciado!");
+
+break;
+
+}
+
+}
+
+function notify(text){
+
+const box=document.createElement("div");
+
+box.style.position="fixed";
+box.style.left="50%";
+box.style.top="30px";
+box.style.transform="translateX(-50%)";
+box.style.background="#222";
+box.style.padding="12px 20px";
+box.style.borderRadius="10px";
+box.style.color="white";
+box.style.zIndex="99999";
+box.innerHTML=text;
+
+document.body.appendChild(box);
+
+setTimeout(()=>{
+
+box.remove();
+
+},3000);
+
+}
+
+/* ===========================
+   PAINEL ADMIN
+=========================== */
+
+const ADMIN_PASSWORD="galaxy123";
+
+document.addEventListener("keydown",e=>{
+
+if(e.key==="F10"){
+
+let pass=prompt("Senha Admin");
+
+if(pass!==ADMIN_PASSWORD){
+
+alert("Senha incorreta!");
+
+return;
+
+}
+
+adminPanel();
+
+}
+
+});
+
+function adminPanel(){
+
+const cmd=prompt(
+
+"1 = Dar dinheiro\n"+
+"2 = 2X Money\n"+
+"3 = 5X Pessoas\n"+
+"4 = Evento Tesouro"
+
+);
+
+switch(cmd){
+
+case "1":
+
+let value=Number(prompt("Quanto?"));
+
+state.money+=value;
+
+updateHUD();
+
+break;
+
+case "2":
+
+startEvent("money2x");
+
+break;
+
+case "3":
+
+startEvent("people5x");
+
+break;
+
+case "4":
+
+startEvent("treasure");
+
+break;
+
+}
+
+}
+
+/* ===========================
+   SALVAR
+=========================== */
+
+function saveGame(){
+
+localStorage.setItem(
+
+"GalaxyPark",
+
+JSON.stringify(state)
+
+);
+
+}
+
+function loadGame(){
+
+const save=localStorage.getItem("GalaxyPark");
+
+if(!save)return;
+
+Object.assign(state,JSON.parse(save));
+
+updateHUD();
+
+}
+
+loadGame();
+
+setInterval(saveGame,5000);
+
+/* ===========================
+   BÔNUS AUTOMÁTICO
+=========================== */
+
+setInterval(()=>{
+
+let gain=state.visitors;
+
+if(events.money2x)gain*=2;
+
+if(events.treasure)gain*=5;
+
+state.money+=gain;
+
+updateHUD();
+
+},1000);
+
+notify("🎢 Galaxy Park Tycoon carregado!");/* ===========================
+   LOJA DE ATRAÇÕES
+=========================== */
+
+const rideShop={
+
+carousel:{
+emoji:"🎠",
+price:1000,
+income:20,
+name:"Carrossel"
+},
+
+coaster:{
+emoji:"🎢",
+price:5000,
+income:80,
+name:"Montanha-russa"
+},
+
+wheel:{
+emoji:"🎡",
+price:12000,
+income:150,
+name:"Roda-Gigante"
+},
+
+rocket:{
+emoji:"🚀",
+price:35000,
+income:400,
+name:"Lançador Espacial"
+},
+
+drop:{
+emoji:"🪂",
+price:90000,
+income:1000,
+name:"Torre de Queda"
+}
+
+};
+
+const rides=[];
+
+function openRideShop(){
+
+let text="Escolha uma atração:\n\n";
+
+Object.keys(rideShop).forEach((k,i)=>{
+
+const r=rideShop[k];
+
+text+=(i+1)+". "+r.name+" - $"+r.price.toLocaleString("pt-BR")+"\n";
+
+});
+
+let choose=prompt(text);
+
+if(!choose)return;
+
+const keys=Object.keys(rideShop);
+
+const item=rideShop[keys[choose-1]];
+
+if(!item)return;
+
+buyRide(item);
+
+}
+
+function buyRide(item){
+
+if(state.money<item.price){
+
+alert("Dinheiro insuficiente!");
+
+return;
+
+}
+
+state.money-=item.price;
+
+updateHUD();
+
+const ride=document.createElement("div");
+
+ride.className="ride";
+
+ride.innerHTML=item.emoji;
+
+ride.style.left=(150+Math.random()*3600)+"px";
+
+ride.style.top=(150+Math.random()*3600)+"px";
+
+ride.style.background="#"+Math.floor(Math.random()*16777215).toString(16).padStart(6,"0");
+
+ride.income=item.income;
+
+ride.level=1;
+
+ride.onclick=function(){
+
+let gain=ride.income*ride.level;
+
+if(events.money2x)gain*=2;
+
+state.money+=gain;
+
+updateHUD();
+
+};
+
+ride.ondblclick=function(){
+
+const cost=ride.level*ride.income*10;
+
+if(state.money<cost){
+
+alert("Dinheiro insuficiente!");
+
+return;
+
+}
+
+state.money-=cost;
+
+ride.level++;
+
+ride.style.transform="scale("+(1+ride.level*0.07)+")";
+
+updateHUD();
+
+};
+
+world.appendChild(ride);
+
+rides.push(ride);
+
+}
+
+/* Ganho automático */
+
+setInterval(()=>{
+
+let total=0;
+
+rides.forEach(r=>{
+
+total+=r.income*r.level;
+
+});
+
+if(events.money2x)total*=2;
+
+if(events.treasure)total*=5;
+
+state.money+=total;
+
+updateHUD();
+
+},3000);
+
+/* Substitui botão Construir */
+
+document.querySelector("#menu button").onclick=openRideShopm;/* ===========================
+   RESTAURANTES E LOJAS
+=========================== */
+
+const buildings=[];
+
+const buildingShop={
+
+food:{
+emoji:"🍔",
+name:"Lanchonete",
+price:2500,
+income:40
+},
+
+drink:{
+emoji:"🥤",
+name:"Bebidas",
+price:3500,
+income:60
+},
+
+gift:{
+emoji:"🎁",
+name:"Loja de Presentes",
+price:8000,
+income:120
+},
+
+ice:{
+emoji:"🍦",
+name:"Sorveteria",
+price:12000,
+income:180
+}
+
+};
+
+function openBuildingShop(){
+
+let txt="LOJAS\n\n";
+
+Object.keys(buildingShop).forEach((k,i)=>{
+
+const b=buildingShop[k];
+
+txt+=(i+1)+". "+b.name+
+" - $"+b.price.toLocaleString("pt-BR")+"\n";
+
+});
+
+const choose=prompt(txt);
+
+if(!choose)return;
+
+const key=Object.keys(buildingShop)[choose-1];
+
+if(!key)return;
+
+buyBuilding(buildingShop[key]);
+
+}
+
+function buyBuilding(data){
+
+if(state.money<data.price){
+
+alert("Dinheiro insuficiente!");
+
+return;
+
+}
+
+state.money-=data.price;
+
+updateHUD();
+
+const b=document.createElement("div");
+
+b.className="ride";
+
+b.innerHTML=data.emoji;
+
+b.style.left=(200+Math.random()*3500)+"px";
+
+b.style.top=(200+Math.random()*3500)+"px";
+
+b.style.background="#4CAF50";
+
+b.income=data.income;
+
+b.level=1;
+
+b.onclick=function(){
+
+let gain=b.income*b.level;
+
+if(events.money2x)gain*=2;
+
+if(events.treasure)gain*=5;
+
+state.money+=gain;
+
+updateHUD();
+
+};
+
+world.appendChild(b);
+
+buildings.push(b);
+
+}
+
+/* ===========================
+   SATISFAÇÃO
+=========================== */
+
+state.happiness=100;
+
+const happy=document.createElement("div");
+
+happy.id="happy";
+
+happy.style.marginTop="6px";
+
+document.getElementById("hud").appendChild(happy);
+
+function updateHappiness(){
+
+happy.innerHTML="😊 "+state.happiness+"%";
+
+}
+
+updateHappiness();
+
+setInterval(()=>{
+
+state.happiness--;
+
+if(state.happiness<20){
+
+state.visitors=Math.max(0,state.visitors-2);
+
+}
+
+if(state.happiness<0){
+
+state.happiness=0;
+
+}
+
+updateHappiness();
+
+updateHUD();
+
+},5000);
+
+/* ===========================
+   LIMPEZA
+=========================== */
+
+state.trash=0;
+
+setInterval(()=>{
+
+state.trash++;
+
+if(state.trash>100){
+
+state.happiness-=5;
+
+}
+
+},4000);
+
+setInterval(()=>{
+
+if(state.robots>0 && state.trash>0){
+
+state.trash-=state.robots;
+
+if(state.trash<0){
+
+state.trash=0;
+
+}
+
+}
+
+},2000);
+
+/* ===========================
+   LUCRO DAS LOJAS
+=========================== */
+
+setInterval(()=>{
+
+let total=0;
+
+buildings.forEach(b=>{
+
+total+=b.income*b.level;
+
+});
+
+state.money+=total;
+
+updateHUD();
+
+},3000);
+
+/* ===========================
+   BOTÃO DA LOJA
+=========================== */
+
+const loja=document.createElement("button");
+
+loja.innerHTML="🏪 Lojas";
+
+loja.onclick=openBuildingShop;
+
+document.getElementById("menu").appendChild(loja);/* ===========================
+   CLIMA E DESASTRES
+=========================== */
+
+state.weather="☀️ Sol";
+state.time=12;
+
+const info=document.createElement("div");
+info.style.marginTop="8px";
+document.getElementById("hud").appendChild(info);
+
+function updateInfo(){
+
+info.innerHTML=
+"🕒 "+state.time+":00<br>"+
+"🌦️ "+state.weather;
+
+}
+
+updateInfo();
+
+setInterval(()=>{
+
+state.time++;
+
+if(state.time>=24){
+
+state.time=0;
+
+}
+
+updateInfo();
+
+},30000);
+
+function changeWeather(){
+
+const list=[
+
+"☀️ Sol",
+"🌧️ Chuva",
+"⛈️ Tempestade",
+"🌨️ Neve"
+
+];
+
+state.weather=list[Math.floor(Math.random()*list.length)];
+
+updateInfo();
+
+}
+
+setInterval(changeWeather,60000);
+
+/* ===========================
+   DESASTRES
+=========================== */
+
+const disasters=[
+
+"🔥 Incêndio",
+
+"⚡ Falta de Energia",
+
+"🌪️ Tempestade",
+
+"👽 Invasão Alien"
+
+];
+
+let disasterActive=false;
+
+function startDisaster(){
+
+if(disasterActive)return;
+
+disasterActive=true;
+
+const d=disasters[
+Math.floor(Math.random()*disasters.length)
+];
+
+notify(d+" começou!");
+
+state.happiness-=20;
+
+updateHappiness();
+
+setTimeout(()=>{
+
+disasterActive=false;
+
+notify(d+" terminou!");
+
+},120000);
+
+}
+
+/* chance pequena */
+
+setInterval(()=>{
+
+if(Math.random()<0.03){
+
+startDisaster();
+
+}
+
+},60000);
+
+/* ===========================
+   BOTÃO
+=========================== */
+
+const clima=document.createElement("button");
+
+clima.innerHTML="🌦️ Mudar Clima";
+
+clima.onclick=changeWeather;
+
+document.getElementById("menu").appendChild(clima);
+
+/* ===========================
+   PARAR DESASTRE
+=========================== */
+
+function stopDisaster(){
+
+if(!disasterActive){
+
+alert("Nenhum desastre ativo.");
+
+return;
+
+}
+
+disasterActive=false;
+
+notify("🛠️ Desastre interrompido pelo administrador.");
+
+  }/* ===========================
+   PAINEL ADMIN V2
+=========================== */
+
+const DEV_PASSWORD="galaxydev";
+
+function openAdmin(){
+
+const pass=prompt("Senha de Desenvolvedor:");
+
+if(pass!==DEV_PASSWORD){
+
+alert("Senha incorreta!");
+
+return;
+
+}
+
+let cmd=prompt(
+
+`PAINEL ADMIN
+
+1 - Dar Dinheiro
+2 - Parar Desastre
+3 - Evento 2X Money
+4 - Evento Tesouro
+5 - Evento 5X Pessoas
+6 - Evento 5X Money
+7 - Criar Robô
+8 - Construir Atração
+9 - Mensagem Global`
+
+);
+
+switch(cmd){
+
+case "1":
+
+let money=Number(prompt("Quanto dinheiro?"));
+
+state.money+=money;
+
+updateHUD();
+
+notify("💰 +$"+money.toLocaleString("pt-BR"));
+
+break;
+
+case "2":
+
+stopDisaster();
+
+break;
+
+case "3":
+
+startEvent("money2x");
+
+break;
+
+case "4":
+
+startEvent("treasure");
+
+break;
+
+case "5":
+
+startEvent("people5x");
+
+break;
+
+case "6":
+
+start5xMoney();
+
+break;
+
+case "7":
+
+adminRobot();
+
+break;
+
+case "8":
+
+adminRide();
+
+break;
+
+case "9":
+
+globalMessage();
+
+break;
+
+}
+
+}
+
+/* ===========================
+   EVENTO 5X MONEY
+=========================== */
+
+function start5xMoney(){
+
+events.money5x=true;
+
+notify("💎 EVENTO 5X MONEY!");
+
+setTimeout(()=>{
+
+events.money5x=false;
+
+notify("Evento 5X encerrado!");
+
+},300000);
+
+}
+
+/* ===========================
+   CRIAR ROBÔ
+=========================== */
+
+function adminRobot(){
+
+state.robots++;
+
+updateHUD();
+
+hireRobot();
+
+}
+
+/* ===========================
+   CONSTRUIR GRÁTIS
+=========================== */
+
+function adminRide(){
+
+const old=state.money;
+
+state.money=999999999;
+
+buildRide();
+
+state.money=old;
+
+updateHUD();
+
+}
+
+/* ===========================
+   MENSAGEM GLOBAL
+=========================== */
+
+function globalMessage(){
+
+let txt=prompt("Mensagem:");
+
+if(!txt)return;
+
+const div=document.createElement("div");
+
+div.style.position="fixed";
+div.style.left="50%";
+div.style.top="80px";
+div.style.transform="translateX(-50%)";
+div.style.background="#ffeb3b";
+div.style.color="#000";
+div.style.padding="15px";
+div.style.borderRadius="10px";
+div.style.fontWeight="bold";
+div.style.zIndex="999999";
+
+div.innerHTML="📢 "+txt;
+
+document.body.appendChild(div);
+
+setTimeout(()=>{
+
+div.remove();
+
+},10000);
+
+}
+
+/* ===========================
+   BOTÃO ADMIN
+=========================== */
+
+const adminBtn=document.createElement("button");
+
+adminBtn.innerHTML="🛠️ Admin";
+
+adminBtn.onclick=openAdmin;
+
+document.getElementById("menu").appendChild(adminBtn);
+
+/* ===========================
+   5X MONEY
+=========================== */
+
+setInterval(()=>{
+
+if(events.money5x){
+
+state.money+=state.visitors*20;
+
+updateHUD();
+
+}
+
+},1000);
+
+console.log("Painel Admin carregado!");/* ===========================
+   CONQUISTAS
+=========================== */
+
+const achievements=[];
+
+function unlockAchievement(name){
+
+if(achievements.includes(name))return;
+
+achievements.push(name);
+
+notify("🏆 Conquista: "+name);
+
+}
+
+setInterval(()=>{
+
+if(state.money>=10000)
+unlockAchievement("Primeiros $10.000");
+
+if(state.money>=100000)
+unlockAchievement("Empresário");
+
+if(state.money>=1000000)
+unlockAchievement("Milionário");
+
+if(state.robots>=10)
+unlockAchievement("Exército de Robôs");
+
+if(state.visitors>=100)
+unlockAchievement("Parque Popular");
+
+},1000);
+
+/* ===========================
+   MISSÕES
+=========================== */
+
+let mission={
+
+title:"Ganhe $5.000",
+
+goal:5000,
+
+reward:2000,
+
+done:false
+
+};
+
+const missionBox=document.createElement("div");
+
+missionBox.style.position="fixed";
+missionBox.style.left="10px";
+missionBox.style.bottom="10px";
+missionBox.style.background="#111";
+missionBox.style.color="white";
+missionBox.style.padding="10px";
+missionBox.style.borderRadius="10px";
+missionBox.style.zIndex="999";
+
+document.body.appendChild(missionBox);
+
+function updateMission(){
+
+missionBox.innerHTML=
+
+"🎯 "+mission.title+
+"<br>🎁 Recompensa: $"+
+mission.reward.toLocaleString("pt-BR");
+
+}
+
+updateMission();
+
+setInterval(()=>{
+
+if(!mission.done&&state.money>=mission.goal){
+
+mission.done=true;
+
+state.money+=mission.reward;
+
+updateHUD();
+
+notify("🎉 Missão concluída!");
+
+}
+
+},1000);
+
+/* ===========================
+   RECOMPENSA DIÁRIA
+=========================== */
+
+function dailyReward(){
+
+let last=localStorage.getItem("dailyReward");
+
+let today=new Date().toDateString();
+
+if(last===today)return;
+
+localStorage.setItem("dailyReward",today);
+
+state.money+=5000;
+
+updateHUD();
+
+notify("🎁 Recompensa diária: $5.000");
+
+}
+
+dailyReward();
+
+/* ===========================
+   ESTATÍSTICAS
+=========================== */
+
+const stats=document.createElement("button");
+
+stats.innerHTML="📊 Estatísticas";
+
+stats.onclick=()=>{
+
+alert(
+
+"💰 Dinheiro: $"+state.money.toLocaleString("pt-BR")+
+
+"\n👥 Visitantes: "+state.visitors+
+
+"\n🤖 Robôs: "+state.robots+
+
+"\n🏆 Conquistas: "+achievements.length
+
+);
+
+};
+
+document.getElementById("menu").appendChild(stats);/* ===========================
+   NÍVEL DO PARQUE
+=========================== */
+
+state.level=1;
+state.xp=0;
+state.nextXP=1000;
+
+const levelBox=document.createElement("div");
+
+levelBox.style.marginTop="8px";
+
+document.getElementById("hud").appendChild(levelBox);
+
+function updateLevel(){
+
+levelBox.innerHTML=
+
+"⭐ Nível "+state.level+
+"<br>✨ XP: "+
+state.xp.toLocaleString("pt-BR")+
+"/"+
+state.nextXP.toLocaleString("pt-BR");
+
+}
+
+updateLevel();
+
+function addXP(value){
+
+state.xp+=value;
+
+while(state.xp>=state.nextXP){
+
+state.xp-=state.nextXP;
+
+state.level++;
+
+state.nextXP=Math.floor(state.nextXP*1.5);
+
+notify("⭐ Seu parque subiu para o nível "+state.level+"!");
+
+state.money+=state.level*5000;
+
+}
+
+updateLevel();
+
+}
+
+/* ===========================
+   XP AUTOMÁTICO
+=========================== */
+
+setInterval(()=>{
+
+addXP(
+
+Math.floor(
+
+state.visitors/5+
+
+state.robots+
+
+rides.length+
+
+buildings.length
+
+)
+
+);
+
+},3000);
+
+/* ===========================
+   PRESTÍGIO
+=========================== */
+
+state.prestige=0;
+
+function prestigePark(){
+
+if(state.level<25){
+
+alert("Você precisa ser nível 25!");
+
+return;
+
+}
+
+if(!confirm("Fazer Prestígio? Você perderá o parque, mas ganhará bônus permanentes."))
+
+return;
+
+state.prestige++;
+
+state.money=1000;
+state.level=1;
+state.xp=0;
+state.nextXP=1000;
+
+rides.forEach(r=>r.remove());
+buildings.forEach(b=>b.remove());
+
+rides.length=0;
+buildings.length=0;
+
+notify("🌌 Prestígio "+state.prestige+" alcançado!");
+
+updateHUD();
+updateLevel();
+
+}
+
+/* ===========================
+   BÔNUS PRESTÍGIO
+=========================== */
+
+setInterval(()=>{
+
+if(state.prestige>0){
+
+state.money+=state.prestige*100;
+
+}
+
+},1000);
+
+/* ===========================
+   BOTÃO
+=========================== */
+
+const prestigeBtn=document.createElement("button");
+
+prestigeBtn.innerHTML="🌌 Prestígio";
+
+prestigeBtn.onclick=prestigePark;
+
+document.getElementById("menu").appendChild(prestigeBtn);/* ===========================
+   INGRESSOS
+=========================== */
+
+state.ticketPrice=50;
+
+const ticketBtn=document.createElement("button");
+
+ticketBtn.innerHTML="🎟️ Ingresso";
+
+ticketBtn.onclick=()=>{
+
+let p=Number(prompt("Preço do ingresso:",state.ticketPrice));
+
+if(isNaN(p)||p<1)return;
+
+state.ticketPrice=p;
+
+notify("🎟️ Ingresso alterado para $"+p);
+
+};
+
+document.getElementById("menu").appendChild(ticketBtn);
+
+/* ===========================
+   DINHEIRO DOS INGRESSOS
+=========================== */
+
+setInterval(()=>{
+
+let lucro=Math.floor(state.visitors*state.ticketPrice/20);
+
+if(events.money2x)lucro*=2;
+
+if(events.money5x)lucro*=5;
+
+state.money+=lucro;
+
+updateHUD();
+
+},2000);
+
+/* ===========================
+   AVALIAÇÃO
+=========================== */
+
+state.rating=5;
+
+const rating=document.createElement("div");
+
+rating.style.marginTop="8px";
+
+document.getElementById("hud").appendChild(rating);
+
+function updateRating(){
+
+let stars="";
+
+for(let i=0;i<state.rating;i++){
+
+stars+="⭐";
+
+}
+
+rating.innerHTML="Avaliação: "+stars;
+
+}
+
+updateRating();
+
+setInterval(()=>{
+
+if(state.happiness<40){
+
+state.rating=3;
+
+}else if(state.happiness<20){
+
+state.rating=2;
+
+}else{
+
+state.rating=5;
+
+}
+
+updateRating();
+
+},5000);
+
+/* ===========================
+   HOTEL
+=========================== */
+
+state.hotel=false;
+
+function buildHotel(){
+
+if(state.hotel){
+
+alert("Você já possui um hotel!");
+
+return;
+
+}
+
+if(state.money<100000){
+
+alert("É preciso $100.000");
+
+return;
+
+}
+
+state.money-=100000;
+
+state.hotel=true;
+
+updateHUD();
+
+notify("🏨 Hotel construído!");
+
+}
+
+const hotel=document.createElement("button");
+
+hotel.innerHTML="🏨 Hotel";
+
+hotel.onclick=buildHotel;
+
+document.getElementById("menu").appendChild(hotel);
+
+setInterval(()=>{
+
+if(state.hotel){
+
+state.money+=5000;
+
+updateHUD();
+
+}
+
+},5000);
+
+/* ===========================
+   ESTACIONAMENTO
+=========================== */
+
+state.parking=false;
+
+function buildParking(){
+
+if(state.parking){
+
+alert("Você já possui estacionamento!");
+
+return;
+
+}
+
+if(state.money<50000){
+
+alert("É preciso $50.000");
+
+return;
+
+}
+
+state.money-=50000;
+
+state.parking=true;
+
+updateHUD();
+
+notify("🚗 Estacionamento construído!");
+
+}
+
+const parking=document.createElement("button");
+
+parking.innerHTML="🚗 Estacionamento";
+
+parking.onclick=buildParking;
+
+document.getElementById("menu").appendChild(parking);
+
+setInterval(()=>{
+
+if(state.parking){
+
+state.visitors+=2;
+
+updateHUD();
+
+}
+
+},4000);
+
+/* ===========================
+   MINIMAPA
+=========================== */
+
+const mini=document.createElement("canvas");
+
+mini.width=180;
+
+mini.height=180;
+
+mini.style.position="fixed";
+mini.style.right="15px";
+mini.style.bottom="15px";
+mini.style.background="#222";
+mini.style.border="2px solid white";
+mini.style.zIndex="999";
+
+document.body.appendChild(mini);
+
+const ctx=mini.getContext("2d");
+
+setInterval(()=>{
+
+ctx.clearRect(0,0,180,180);
+
+ctx.fillStyle="#58b957";
+ctx.fillRect(0,0,180,180);
+
+ctx.fillStyle="red";
+
+rides.forEach(r=>{
+
+ctx.fillRect(
+
+parseInt(r.style.left)/22,
+
+parseInt(r.style.top)/22,
+
+4,
+
+4
+
+);
+
+});
+
+ctx.fillStyle="yellow";
+
+buildings.forEach(b=>{
+
+ctx.fillRect(
+
+parseInt(b.style.left)/22,
+
+parseInt(b.style.top)/22,
+
+3,
+
+3
+
+);
+
+});
+
+},500);
+
+notify("🗺️ Sistema de expansão carregado!");/* ===========================
+   FUNCIONÁRIOS
+=========================== */
+
+state.staff={
+janitors:0,
+mechanics:0,
+security:0
+};
+
+const staffBtn=document.createElement("button");
+
+staffBtn.innerHTML="👷 Funcionários";
+
+staffBtn.onclick=openStaffMenu;
+
+document.getElementById("menu").appendChild(staffBtn);
+
+function openStaffMenu(){
+
+const op=prompt(
+
+"FUNCIONÁRIOS\n\n"+
+"1 - Faxineiro ($2.500)\n"+
+"2 - Mecânico ($5.000)\n"+
+"3 - Segurança ($7.500)"
+
+);
+
+if(op=="1")buyJanitor();
+if(op=="2")buyMechanic();
+if(op=="3")buySecurity();
+
+}
+
+function buyJanitor(){
+
+if(state.money<2500)return alert("Dinheiro insuficiente!");
+
+state.money-=2500;
+
+state.staff.janitors++;
+
+updateHUD();
+
+notify("🧹 Faxineiro contratado!");
+
+}
+
+function buyMechanic(){
+
+if(state.money<5000)return alert("Dinheiro insuficiente!");
+
+state.money-=5000;
+
+state.staff.mechanics++;
+
+updateHUD();
+
+notify("🔧 Mecânico contratado!");
+
+}
+
+function buySecurity(){
+
+if(state.money<7500)return alert("Dinheiro insuficiente!");
+
+state.money-=7500;
+
+state.staff.security++;
+
+updateHUD();
+
+notify("🛡️ Segurança contratado!");
+
+}
+
+/* ===========================
+   LIMPEZA
+=========================== */
+
+setInterval(()=>{
+
+if(state.staff.janitors>0){
+
+state.trash=Math.max(0,state.trash-state.staff.janitors*3);
+
+}
+
+},2000);
+
+/* ===========================
+   MANUTENÇÃO
+=========================== */
+
+rides.forEach(r=>{
+
+r.condition=100;
+
+});
+
+setInterval(()=>{
+
+rides.forEach(r=>{
+
+if(r.condition===undefined)r.condition=100;
+
+r.condition--;
+
+if(state.staff.mechanics>0){
+
+r.condition=Math.min(100,r.condition+state.staff.mechanics);
+
+}
+
+if(r.condition<20){
+
+r.style.filter="grayscale(1)";
+
+}else{
+
+r.style.filter="";
+
+}
+
+});
+
+},5000);
+
+/* ===========================
+   FILAS
+=========================== */
+
+setInterval(()=>{
+
+rides.forEach(r=>{
+
+if(r.queue===undefined)r.queue=0;
+
+r.queue+=Math.floor(Math.random()*4);
+
+if(r.queue>100)r.queue=100;
+
+});
+
+},3000);
+
+setInterval(()=>{
+
+rides.forEach(r=>{
+
+r.queue=Math.max(0,r.queue-r.level*2);
+
+});
+
+},2000);
+
+/* ===========================
+   SATISFAÇÃO
+=========================== */
+
+setInterval(()=>{
+
+let filasGrandes=0;
+
+rides.forEach(r=>{
+
+if(r.queue>60)filasGrandes++;
+
+});
+
+if(filasGrandes>3){
+
+state.happiness=Math.max(0,state.happiness-2);
+
+}else{
+
+state.happiness=Math.min(100,state.happiness+1);
+
+}
+
+updateHappiness();
+
+},5000);
+
+/* ===========================
+   SEGURANÇA
+=========================== */
+
+setInterval(()=>{
+
+if(state.staff.security>0){
+
+state.happiness=Math.min(100,state.happiness+1);
+
+}
+
+},4000);
+
+/* ===========================
+   HUD
+=========================== */
+
+const staffInfo=document.createElement("div");
+
+document.getElementById("hud").appendChild(staffInfo);
+
+function updateStaffHUD(){
+
+staffInfo.innerHTML=
+
+"🧹 "+state.staff.janitors+
+" | 🔧 "+state.staff.mechanics+
+" | 🛡️ "+state.staff.security;
+
+}
+
+setInterval(updateStaffHUD,500);/* ===========================
+   PAINEL ADMIN GRÁFICO
+=========================== */
+
+const admin=document.createElement("div");
+
+admin.id="adminPanel";
+
+admin.style.position="fixed";
+admin.style.left="50%";
+admin.style.top="50%";
+admin.style.transform="translate(-50%,-50%)";
+admin.style.width="420px";
+admin.style.maxHeight="80vh";
+admin.style.overflowY="auto";
+admin.style.background="#181818";
+admin.style.color="white";
+admin.style.padding="20px";
+admin.style.borderRadius="15px";
+admin.style.boxShadow="0 0 30px black";
+admin.style.display="none";
+admin.style.zIndex="999999";
+
+admin.innerHTML=`
+
+<h2>🛠️ Painel Admin</h2>
+
+<button onclick="adminGiveMoney()">💰 Dar Dinheiro</button>
+
+<button onclick="startEvent('money2x')">💵 Evento 2X Money</button>
+
+<button onclick="start5xMoney()">💎 Evento 5X Money</button>
+
+<button onclick="startEvent('people5x')">👥 Evento 5X Pessoas</button>
+
+<button onclick="startEvent('treasure')">💎 Evento Tesouro</button>
+
+<button onclick="changeWeather()">🌦️ Trocar Clima</button>
+
+<button onclick="stopDisaster()">🛑 Parar Desastre</button>
+
+<button onclick="hireRobot()">🤖 Criar Robô</button>
+
+<button onclick="buildRide()">🎢 Construir Atração</button>
+
+<button onclick="adminMessage()">📢 Mensagem Global</button>
+
+<button onclick="spawnFireworks()">🎆 Fogos</button>
+
+<button onclick="closeAdmin()">❌ Fechar</button>
+
+`;
+
+document.body.appendChild(admin);
+
+function openAdminGUI(){
+
+const pass=prompt("Senha:");
+
+if(pass!=="galaxydev"){
+
+alert("Senha incorreta");
+
+return;
+
+}
+
+admin.style.display="block";
+
+}
+
+function closeAdmin(){
+
+admin.style.display="none";
+
+}
+
+function adminGiveMoney(){
+
+let v=Number(prompt("Valor"));
+
+if(isNaN(v))return;
+
+state.money+=v;
+
+updateHUD();
+
+notify("💰 +$"+v.toLocaleString("pt-BR"));
+
+}
+
+function adminMessage(){
+
+let txt=prompt("Mensagem Global");
+
+if(!txt)return;
+
+notify("📢 "+txt);
+
+}
+
+const guiBtn=document.createElement("button");
+
+guiBtn.innerHTML="🛠️ Painel";
+
+guiBtn.onclick=openAdminGUI;
+
+document.getElementById("menu").appendChild(guiBtn);
+
+/* ===========================
+   FOGOS DE ARTIFÍCIO
+=========================== */
+
+function spawnFireworks(){
+
+for(let i=0;i<30;i++){
+
+const p=document.createElement("div");
+
+p.style.position="fixed";
+
+p.style.left=Math.random()*window.innerWidth+"px";
+
+p.style.top=Math.random()*window.innerHeight+"px";
+
+p.style.width="8px";
+
+p.style.height="8px";
+
+p.style.borderRadius="50%";
+
+p.style.background=
+
+"#"+Math.floor(Math.random()*16777215).toString(16).padStart(6,"0");
+
+p.style.zIndex="999999";
+
+document.body.appendChild(p);
+
+setTimeout(()=>{
+
+p.remove();
+
+},2000);
+
+}
+
+notify("🎆 Show de fogos!");
+
+  }/* ===========================
+   CENTRO DE PESQUISA
+=========================== */
+
+state.research={
+speed:false,
+marketing:false,
+energy:false,
+robots:false,
+vip:false
+};
+
+function openResearch(){
+
+let op=prompt(
+
+"🔬 CENTRO DE PESQUISA\n\n"+
+"1 - Velocidade ($25.000)\n"+
+"2 - Marketing ($50.000)\n"+
+"3 - Energia Solar ($100.000)\n"+
+"4 - Robôs IA ($250.000)\n"+
+"5 - Área VIP ($500.000)"
+
+);
+
+switch(op){
+
+case "1":
+buyResearch("speed",25000);
+break;
+
+case "2":
+buyResearch("marketing",50000);
+break;
+
+case "3":
+buyResearch("energy",100000);
+break;
+
+case "4":
+buyResearch("robots",250000);
+break;
+
+case "5":
+buyResearch("vip",500000);
+break;
+
+}
+
+}
+
+function buyResearch(id,price){
+
+if(state.research[id]){
+alert("Pesquisa já concluída!");
+return;
+}
+
+if(state.money<price){
+alert("Dinheiro insuficiente!");
+return;
+}
+
+state.money-=price;
+
+state.research[id]=true;
+
+updateHUD();
+
+notify("🔬 Pesquisa concluída!");
+
+}
+
+/* ===========================
+   BÔNUS DAS PESQUISAS
+=========================== */
+
+setInterval(()=>{
+
+if(state.research.marketing){
+
+state.visitors+=2;
+
+}
+
+if(state.research.robots){
+
+state.money+=state.robots*100;
+
+}
+
+if(state.research.vip){
+
+state.money+=1000;
+
+}
+
+updateHUD();
+
+},3000);
+
+/* ===========================
+   ENERGIA
+=========================== */
+
+state.energy=100;
+
+setInterval(()=>{
+
+if(!state.research.energy){
+
+state.energy--;
+
+}else{
+
+state.energy=100;
+
+}
+
+if(state.energy<20){
+
+notify("⚠️ Energia baixa!");
+
+}
+
+},5000);
+
+/* ===========================
+   BOTÃO
+=========================== */
+
+const researchBtn=document.createElement("button");
+
+researchBtn.innerHTML="🔬 Pesquisas";
+
+researchBtn.onclick=openResearch;
+
+document.getElementById("menu").appendChild(researchBtn);
+
+/* ===========================
+   VIP
+=========================== */
+
+setInterval(()=>{
+
+if(state.research.vip){
+
+state.happiness=Math.min(100,state.happiness+2);
+
+updateHappiness();
+
+}
+
+},4000);/* ===========================
+   RESORT GALÁCTICO
+=========================== */
+
+state.resort={
+unlocked:false,
+level:0,
+income:0,
+guests:0
+};
+
+function buildResort(){
+
+if(state.resort.unlocked){
+
+alert("Você já possui um Resort!");
+
+return;
+
+}
+
+const cost=2500000;
+
+if(state.money<cost){
+
+alert("É preciso $2.500.000");
+
+return;
+
+}
+
+state.money-=cost;
+
+state.resort.unlocked=true;
+state.resort.level=1;
+state.resort.income=25000;
+
+updateHUD();
+
+notify("🏨 Resort Galáctico inaugurado!");
+
+}
+
+function upgradeResort(){
+
+if(!state.resort.unlocked)return;
+
+const cost=state.resort.level*1000000;
+
+if(state.money<cost){
+
+alert("Dinheiro insuficiente!");
+
+return;
+
+}
+
+state.money-=cost;
+
+state.resort.level++;
+
+state.resort.income+=15000;
+
+notify("⭐ Resort nível "+state.resort.level);
+
+updateHUD();
+
+}
+
+/* ===========================
+   HÓSPEDES
+=========================== */
+
+setInterval(()=>{
+
+if(!state.resort.unlocked)return;
+
+state.resort.guests+=Math.floor(Math.random()*8)+3;
+
+if(state.resort.guests>500){
+
+state.resort.guests=500;
+
+}
+
+},4000);
+
+/* ===========================
+   LUCRO
+=========================== */
+
+setInterval(()=>{
+
+if(!state.resort.unlocked)return;
+
+let gain=
+
+state.resort.income+
+
+state.resort.guests*100;
+
+if(events.money2x)gain*=2;
+
+if(events.money5x)gain*=5;
+
+state.money+=gain;
+
+updateHUD();
+
+},5000);
+
+/* ===========================
+   VISITANTES
+=========================== */
+
+setInterval(()=>{
+
+if(!state.resort.unlocked)return;
+
+for(let i=0;i<5;i++){
+
+if(state.visitors<3000){
+
+spawnVisitor();
+
+}
+
+}
+
+},5000);
+
+/* ===========================
+   HUD
+=========================== */
+
+const resortInfo=document.createElement("div");
+
+document.getElementById("hud").appendChild(resortInfo);
+
+function updateResortHUD(){
+
+if(!state.resort.unlocked){
+
+resortInfo.innerHTML="🏨 Resort: Não Construído";
+
+}else{
+
+resortInfo.innerHTML=
+
+"🏨 Resort Nv."+state.resort.level+
+
+"<br>🛏️ Hóspedes: "+state.resort.guests;
+
+}
+
+}
+
+setInterval(updateResortHUD,1000);
+
+/* ===========================
+   MENU
+=========================== */
+
+const resortBtn=document.createElement("button");
+
+resortBtn.innerHTML="🏨 Resort";
+
+resortBtn.onclick=()=>{
+
+if(!state.resort.unlocked){
+
+buildResort();
+
+}else{
+
+upgradeResort();
+
+}
+
+};
+
+document.getElementById("menu").appendChild(resortBtn);
+
+/* ===========================
+   CONQUISTA
+=========================== */
+
+setInterval(()=>{
+
+if(state.resort.level>=5){
+
+unlockAchievement("🏨 Magnata dos Resorts");
+
+}
+
+},3000);/* ===========================
+   TREM DO PARQUE
+=========================== */
+
+state.train={
+unlocked:false,
+level:0,
+income:0,
+passengers:0
+};
+
+function buildTrain(){
+
+if(state.train.unlocked){
+
+alert("Você já construiu o Trem!");
+
+return;
+
+}
+
+const cost=5000000;
+
+if(state.money<cost){
+
+alert("É necessário $5.000.000");
+
+return;
+
+}
+
+state.money-=cost;
+
+state.train.unlocked=true;
+state.train.level=1;
+state.train.income=50000;
+
+updateHUD();
+
+notify("🚝 Trem do Parque inaugurado!");
+
+createTrain();
+
+}
+
+function upgradeTrain(){
+
+if(!state.train.unlocked)return;
+
+const cost=state.train.level*2000000;
+
+if(state.money<cost){
+
+alert("Dinheiro insuficiente!");
+
+return;
+
+}
+
+state.money-=cost;
+
+state.train.level++;
+
+state.train.income+=25000;
+
+notify("🚝 Trem nível "+state.train.level);
+
+updateHUD();
+
+}
+
+function createTrain(){
+
+const train=document.createElement("div");
+
+train.id="parkTrain";
+
+train.innerHTML="🚝";
+
+train.style.position="absolute";
+
+train.style.fontSize="60px";
+
+train.style.left="200px";
+
+train.style.top="1950px";
+
+world.appendChild(train);
+
+let x=200;
+
+setInterval(()=>{
+
+x+=5;
+
+if(x>3800)x=200;
+
+train.style.left=x+"px";
+
+train.style.top="1950px";
+
+},40);
+
+}
+
+/* ===========================
+   PASSAGEIROS
+=========================== */
+
+setInterval(()=>{
+
+if(!state.train.unlocked)return;
+
+state.train.passengers+=Math.floor(Math.random()*20);
+
+if(state.train.passengers>1000){
+
+state.train.passengers=1000;
+
+}
+
+},3000);
+
+/* ===========================
+   LUCRO
+=========================== */
+
+setInterval(()=>{
+
+if(!state.train.unlocked)return;
+
+let gain=
+
+state.train.income+
+
+state.train.passengers*50;
+
+if(events.money2x)gain*=2;
+
+if(events.money5x)gain*=5;
+
+state.money+=gain;
+
+updateHUD();
+
+},5000);
+
+/* ===========================
+   VISITANTES
+=========================== */
+
+setInterval(()=>{
+
+if(!state.train.unlocked)return;
+
+for(let i=0;i<10;i++){
+
+if(state.visitors<5000){
+
+spawnVisitor();
+
+}
+
+}
+
+},5000);
+
+/* ===========================
+   HUD
+=========================== */
+
+const trainHUD=document.createElement("div");
+
+document.getElementById("hud").appendChild(trainHUD);
+
+function updateTrainHUD(){
+
+if(!state.train.unlocked){
+
+trainHUD.innerHTML="🚝 Trem: Não Construído";
+
+}else{
+
+trainHUD.innerHTML=
+
+"🚝 Trem Nv."+state.train.level+
+
+"<br>👥 Passageiros: "+state.train.passengers;
+
+}
+
+}
+
+setInterval(updateTrainHUD,1000);
+
+/* ===========================
+   MENU
+=========================== */
+
+const trainBtn=document.createElement("button");
+
+trainBtn.innerHTML="🚝 Trem";
+
+trainBtn.onclick=()=>{
+
+if(!state.train.unlocked){
+
+buildTrain();
+
+}else{
+
+upgradeTrain();
+
+}
+
+};
+
+document.getElementById("menu").appendChild(trainBtn);
+
+/* ===========================
+   CONQUISTA
+=========================== */
+
+setInterval(()=>{
+
+if(state.train.level>=10){
+
+unlockAchievement("🚝 Mestre Ferroviário");
+
+}
+
+},3000);/* ===========================
+   TELEFÉRICO
+=========================== */
+
+state.cableCar={
+unlocked:false,
+level:0,
+income:0,
+cabins:0
+};
+
+function buildCableCar(){
+
+if(state.cableCar.unlocked){
+alert("Você já possui um Teleférico!");
+return;
+}
+
+const cost=8000000;
+
+if(state.money<cost){
+alert("Você precisa de $8.000.000");
+return;
+}
+
+state.money-=cost;
+
+state.cableCar.unlocked=true;
+state.cableCar.level=1;
+state.cableCar.income=75000;
+state.cableCar.cabins=2;
+
+updateHUD();
+
+notify("🚡 Teleférico inaugurado!");
+
+createCableCar();
+
+}
+
+function upgradeCableCar(){
+
+if(!state.cableCar.unlocked)return;
+
+const cost=state.cableCar.level*3000000;
+
+if(state.money<cost){
+alert("Dinheiro insuficiente!");
+return;
+}
+
+state.money-=cost;
+
+state.cableCar.level++;
+state.cableCar.cabins++;
+state.cableCar.income+=30000;
+
+updateHUD();
+
+notify("🚡 Teleférico Nível "+state.cableCar.level);
+
+}
+
+function createCableCar(){
+
+const cable=document.createElement("div");
+
+cable.id="cableCar";
+
+cable.innerHTML="🚡";
+
+cable.style.position="absolute";
+cable.style.left="300px";
+cable.style.top="500px";
+cable.style.fontSize="55px";
+
+world.appendChild(cable);
+
+let x=300;
+let dir=1;
+
+setInterval(()=>{
+
+x+=dir*6;
+
+if(x>3600)dir=-1;
+if(x<300)dir=1;
+
+cable.style.left=x+"px";
+
+},40);
+
+}
+
+/* ===========================
+   PASSAGEIROS
+=========================== */
+
+setInterval(()=>{
+
+if(!state.cableCar.unlocked)return;
+
+state.money+=state.cableCar.income;
+
+state.visitors+=state.cableCar.level;
+
+updateHUD();
+
+},4000);
+
+/* ===========================
+   HUD
+=========================== */
+
+const cableHUD=document.createElement("div");
+
+document.getElementById("hud").appendChild(cableHUD);
+
+function updateCableHUD(){
+
+if(!state.cableCar.unlocked){
+
+cableHUD.innerHTML="🚡 Teleférico: Não Construído";
+
+}else{
+
+cableHUD.innerHTML=
+
+"🚡 Teleférico Nv."+state.cableCar.level+
+"<br>🚠 Cabines: "+state.cableCar.cabins;
+
+}
+
+}
+
+setInterval(updateCableHUD,1000);
+
+/* ===========================
+   MENU
+=========================== */
+
+const cableBtn=document.createElement("button");
+
+cableBtn.innerHTML="🚡 Teleférico";
+
+cableBtn.onclick=()=>{
+
+if(!state.cableCar.unlocked){
+
+buildCableCar();
+
+}else{
+
+upgradeCableCar();
+
+}
+
+};
+
+document.getElementById("menu").appendChild(cableBtn);
+
+/* ===========================
+   CONQUISTA
+=========================== */
+
+setInterval(()=>{
+
+if(state.cableCar.level>=10){
+
+unlockAchievement("🚡 Mestre dos Céus");
+
+}
+
+},3000);/* ===========================
+   SHOWS E FESTIVAIS
+=========================== */
+
+state.show={
+unlocked:false,
+level:0,
+income:0,
+audience:0
+};
+
+function buildShowArena(){
+
+if(state.show.unlocked){
+
+alert("Você já possui uma Arena de Shows!");
+
+return;
+
+}
+
+const cost=12000000;
+
+if(state.money<cost){
+
+alert("Você precisa de $12.000.000");
+
+return;
+
+}
+
+state.money-=cost;
+
+state.show.unlocked=true;
+state.show.level=1;
+state.show.income=150000;
+
+updateHUD();
+
+notify("🎆 Arena de Shows inaugurada!");
+
+createStage();
+
+}
+
+function upgradeShow(){
+
+if(!state.show.unlocked)return;
+
+const cost=state.show.level*4000000;
+
+if(state.money<cost){
+
+alert("Dinheiro insuficiente!");
+
+return;
+
+}
+
+state.money-=cost;
+
+state.show.level++;
+state.show.income+=80000;
+
+updateHUD();
+
+notify("🎤 Arena nível "+state.show.level);
+
+}
+
+function createStage(){
+
+const stage=document.createElement("div");
+
+stage.className="ride";
+
+stage.innerHTML="🎆";
+
+stage.style.left="2500px";
+stage.style.top="2500px";
+stage.style.background="#9C27B0";
+
+world.appendChild(stage);
+
+}
+
+/* ===========================
+   FESTIVAIS
+=========================== */
+
+const festivals=[
+
+"🎃 Halloween",
+
+"🎄 Natal",
+
+"🎇 Ano Novo",
+
+"🌸 Primavera",
+
+"☀️ Festival de Verão",
+
+"👽 Festival Alien"
+
+];
+
+setInterval(()=>{
+
+if(!state.show.unlocked)return;
+
+if(Math.random()<0.15){
+
+const festival=
+
+festivals[Math.floor(Math.random()*festivals.length)];
+
+notify(festival+" começou!");
+
+state.money+=500000;
+
+state.visitors+=100;
+
+updateHUD();
+
+}
+
+},120000);
+
+/* ===========================
+   RENDA
+=========================== */
+
+setInterval(()=>{
+
+if(!state.show.unlocked)return;
+
+let gain=
+
+state.show.income+
+
+state.show.level*50000;
+
+if(events.money2x)gain*=2;
+
+if(events.money5x)gain*=5;
+
+state.money+=gain;
+
+updateHUD();
+
+},5000);
+
+/* ===========================
+   PÚBLICO
+=========================== */
+
+setInterval(()=>{
+
+if(!state.show.unlocked)return;
+
+state.show.audience+=Math.floor(Math.random()*40);
+
+if(state.show.audience>5000){
+
+state.show.audience=5000;
+
+}
+
+},4000);
+
+/* ===========================
+   HUD
+=========================== */
+
+const showHUD=document.createElement("div");
+
+document.getElementById("hud").appendChild(showHUD);
+
+function updateShowHUD(){
+
+if(!state.show.unlocked){
+
+showHUD.innerHTML="🎆 Arena: Não construída";
+
+}else{
+
+showHUD.innerHTML=
+
+"🎆 Arena Nv."+state.show.level+
+
+"<br>🎤 Público: "+state.show.audience;
+
+}
+
+}
+
+setInterval(updateShowHUD,1000);
+
+/* ===========================
+   MENU
+=========================== */
+
+const showBtn=document.createElement("button");
+
+showBtn.innerHTML="🎆 Arena";
+
+showBtn.onclick=()=>{
+
+if(!state.show.unlocked){
+
+buildShowArena();
+
+}else{
+
+upgradeShow();
+
+}
+
+};
+
+document.getElementById("menu").appendChild(showBtn);
+
+/* ===========================
+   CONQUISTA
+=========================== */
+
+setInterval(()=>{
+
+if(state.show.level>=10){
+
+unlockAchievement("🎆 Rei dos Festivais");
+
+}
+
+},3000);/* ===========================
+   SAVE COMPLETO
+=========================== */
+
+function saveGameFull(){
+
+const save={
+
+state,
+
+rides:rides.map(r=>({
+
+emoji:r.innerHTML,
+
+left:r.style.left,
+
+top:r.style.top,
+
+background:r.style.background,
+
+level:r.level,
+
+income:r.income
+
+})),
+
+buildings:buildings.map(b=>({
+
+emoji:b.innerHTML,
+
+left:b.style.left,
+
+top:b.style.top,
+
+background:b.style.background,
+
+level:b.level,
+
+income:b.income
+
+})),
+
+achievements,
+
+events
+
+};
+
+localStorage.setItem(
+
+"GalaxyParkTycoon_Save",
+
+JSON.stringify(save)
+
+);
+
+}
+
+function loadGameFull(){
+
+const txt=localStorage.getItem("GalaxyParkTycoon_Save");
+
+if(!txt)return;
+
+const save=JSON.parse(txt);
+
+/* Estado */
+
+Object.assign(state,save.state);
+
+updateHUD();
+
+if(typeof updateLevel==="function")updateLevel();
+if(typeof updateHappiness==="function")updateHappiness();
+
+/* Atrações */
+
+rides.length=0;
+
+save.rides.forEach(data=>{
+
+const r=document.createElement("div");
+
+r.className="ride";
+
+r.innerHTML=data.emoji;
+
+r.style.left=data.left;
+
+r.style.top=data.top;
+
+r.style.background=data.background;
+
+r.level=data.level;
+
+r.income=data.income;
+
+r.onclick=function(){
+
+let gain=r.level*r.income;
+
+if(events.money2x)gain*=2;
+
+if(events.money5x)gain*=5;
+
+if(events.treasure)gain*=2;
+
+state.money+=gain;
+
+updateHUD();
+
+};
+
+world.appendChild(r);
+
+rides.push(r);
+
+});
+
+/* Lojas */
+
+buildings.length=0;
+
+save.buildings.forEach(data=>{
+
+const b=document.createElement("div");
+
+b.className="ride";
+
+b.innerHTML=data.emoji;
+
+b.style.left=data.left;
+
+b.style.top=data.top;
+
+b.style.background=data.background;
+
+b.level=data.level;
+
+b.income=data.income;
+
+world.appendChild(b);
+
+buildings.push(b);
+
+});
+
+/* Conquistas */
+
+achievements.length=0;
+
+save.achievements.forEach(a=>{
+
+achievements.push(a);
+
+});
+
+/* Eventos */
+
+Object.assign(events,save.events);
+
+notify("💾 Jogo carregado!");
+
+}
+
+setInterval(saveGameFull,10000);
+
+window.addEventListener("load",loadGameFull);
+
+/* ===========================
+   BOTÕES
+=========================== */
+
+const saveBtn=document.createElement("button");
+
+saveBtn.innerHTML="💾 Salvar";
+
+saveBtn.onclick=saveGameFull;
+
+document.getElementById("menu").appendChild(saveBtn);
+
+const loadBtn=document.createElement("button");
+
+loadBtn.innerHTML="📂 Carregar";
+
+loadBtn.onclick=loadGameFull;
+
+document.getElementById("menu").appendChild(loadBtn);/* ===========================
+   SISTEMA DE ÁUDIO
+=========================== */
+
+const audio={
+
+enabled:true,
+
+music:new Audio("assets/music/theme.mp3"),
+
+click:new Audio("assets/sounds/click.mp3"),
+
+money:new Audio("assets/sounds/money.mp3"),
+
+event:new Audio("assets/sounds/event.mp3"),
+
+disaster:new Audio("assets/sounds/disaster.mp3")
+
+};
+
+audio.music.loop=true;
+audio.music.volume=0.35;
+
+function playMusic(){
+
+if(audio.enabled){
+
+audio.music.play().catch(()=>{});
+
+}
+
+}
+
+function stopMusic(){
+
+audio.music.pause();
+
+}
+
+function playSound(name){
+
+if(!audio.enabled)return;
+
+if(audio[name]){
+
+audio[name].currentTime=0;
+
+audio[name].play().catch(()=>{});
+
+}
+
+}
+
+/* ===========================
+   BOTÃO
+=========================== */
+
+const soundBtn=document.createElement("button");
+
+soundBtn.innerHTML="🎵 Música ON";
+
+soundBtn.onclick=function(){
+
+audio.enabled=!audio.enabled;
+
+if(audio.enabled){
+
+playMusic();
+
+soundBtn.innerHTML="🎵 Música ON";
+
+}else{
+
+stopMusic();
+
+soundBtn.innerHTML="🔇 Música OFF";
+
+}
+
+};
+
+document.getElementById("menu").appendChild(soundBtn);
+
+/* ===========================
+   EFEITOS
+=========================== */
+
+const oldCollectMoney=collectMoney;
+
+collectMoney=function(){
+
+playSound("money");
+
+oldCollectMoney();
+
+};
+
+const oldNotify=notify;
+
+notify=function(text){
+
+playSound("event");
+
+oldNotify(text);
+
+};
+
+const oldStartDisaster=startDisaster;
+
+startDisaster=function(){
+
+playSound("disaster");
+
+oldStartDisaster();
+
+};
+
+document.body.addEventListener("click",playMusic,{once:true});
+
+/* ===========================
+   AMBIENTE
+=========================== */
+
+setInterval(()=>{
+
+if(state.weather==="🌧️ Chuva"){
+
+audio.music.volume=0.20;
+
+}else if(state.weather==="⛈️ Tempestade"){
+
+audio.music.volume=0.15;
+
+}else{
+
+audio.music.volume=0.35;
+
+}
+
+},2000);
+
+console.log("Sistema de áudio carregado!");
+</script>
+
+</body>
+</html>
